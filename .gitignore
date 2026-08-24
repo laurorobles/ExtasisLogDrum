@@ -1,0 +1,9 @@
+/build
+/build_artefacts
+.DS_Store
+*.suo
+*.user
+*.ncb
+*.suo
+*.pdb
+EOF
