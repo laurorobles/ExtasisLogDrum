@@ -54,15 +54,21 @@ jobs:
             libxrandr-dev \
             libxrender-dev \
             libgl1-mesa-dev \
+            ninja-build \
             pkg-config \
             zip
+
+      - name: Setup Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
 
       - name: Setup MSVC Developer Command Prompt (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup Ninja
-        uses: ashley-taylor/setup-ninja@v1.0.0
+      - name: Setup Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja -y --no-progress
 
       - name: Configure CMake
         run: |
