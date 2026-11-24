@@ -1,11 +1,15 @@
-name: Build Extasis LogDrum (Windows & macOS)
+name: Build & Release ExtasisLogDrum
 
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -17,12 +21,12 @@ jobs:
         include:
           - name: Windows (x64)
             os: windows-latest
-            artifact_name: ExtasisLogDrum-Windows
-            cmake_args: -DCMAKE_BUILD_TYPE=Release -DJUCE_COPY_PLUGIN_AFTER_BUILD=FALSE
+            artifact_name: ExtasisLogDrum-Windows-x64
+            cmake_args: -DCMAKE_BUILD_TYPE=Release -DEXTASIS_INSTALL_LOCAL=OFF
           - name: macOS (Universal)
             os: macos-latest
-            artifact_name: ExtasisLogDrum-macOS
-            cmake_args: -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DJUCE_COPY_PLUGIN_AFTER_BUILD=FALSE
+            artifact_name: ExtasisLogDrum-macOS-Universal
+            cmake_args: -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DEXTASIS_INSTALL_LOCAL=OFF
 
     steps:
       - name: Checkout Code
@@ -45,65 +49,95 @@ jobs:
         run: |
           cmake --build build --config Release --parallel
 
-      - name: Prepare Windows Artifacts
+      - name: Prepare Windows Package
         if: runner.os == 'Windows'
         shell: bash
         run: |
           mkdir -p artifacts
-          for path in "build/ExtasisLogDrum_artefacts/VST3/ExtasisLogDrum.vst3" "build/ExtasisLogDrum_artefacts/Release/VST3/ExtasisLogDrum.vst3" "build/ExtasisLogDrum_artefacts/VST3/Extasis LogDrum.vst3" "build/ExtasisLogDrum_artefacts/Release/VST3/Extasis LogDrum.vst3"; do
+          for path in "build/ExtasisLogDrum_artefacts/Release/VST3/ExtasisLogDrum.vst3" "build/ExtasisLogDrum_artefacts/VST3/ExtasisLogDrum.vst3"; do
             if [ -d "$path" ]; then
               cp -r "$path" artifacts/
               break
             fi
           done
-          for path in "build/ExtasisLogDrum_artefacts/Standalone/ExtasisLogDrum.exe" "build/ExtasisLogDrum_artefacts/Release/Standalone/ExtasisLogDrum.exe" "build/ExtasisLogDrum_artefacts/Standalone/Extasis LogDrum.exe" "build/ExtasisLogDrum_artefacts/Release/Standalone/Extasis LogDrum.exe"; do
+          for path in "build/ExtasisLogDrum_artefacts/Release/Standalone/ExtasisLogDrum.exe" "build/ExtasisLogDrum_artefacts/Standalone/ExtasisLogDrum.exe"; do
             if [ -f "$path" ]; then
               cp "$path" artifacts/
               break
             fi
           done
-          if [ -d "installer" ]; then
-            cp -r installer artifacts/
-          fi
-          for doc in MANUAL.md README.md PRESENTATION.md TECHNICAL.md FICHA_TECNICA.md ARCHITECTURE.md; do
+          cp -r installer artifacts/
+          for doc in LICENSE README.md MANUAL.md CHANGELOG.md; do
             if [ -f "$doc" ]; then cp "$doc" artifacts/; fi
           done
-          
+          mkdir -p release_zips
+          (cd artifacts && 7z a "../release_zips/${{ matrix.artifact_name }}.zip" .)
 
-      - name: Prepare macOS Artifacts
+      - name: Prepare macOS Package
         if: runner.os == 'macOS'
         shell: bash
         run: |
           mkdir -p artifacts
-          for path in "build/ExtasisLogDrum_artefacts/VST3/ExtasisLogDrum.vst3" "build/ExtasisLogDrum_artefacts/Release/VST3/ExtasisLogDrum.vst3" "build/ExtasisLogDrum_artefacts/VST3/Extasis LogDrum.vst3" "build/ExtasisLogDrum_artefacts/Release/VST3/Extasis LogDrum.vst3"; do
+          for path in "build/ExtasisLogDrum_artefacts/Release/VST3/ExtasisLogDrum.vst3" "build/ExtasisLogDrum_artefacts/VST3/ExtasisLogDrum.vst3"; do
             if [ -d "$path" ]; then
               cp -r "$path" artifacts/
               break
             fi
           done
-          for path in "build/ExtasisLogDrum_artefacts/AU/ExtasisLogDrum.component" "build/ExtasisLogDrum_artefacts/Release/AU/ExtasisLogDrum.component" "build/ExtasisLogDrum_artefacts/AU/Extasis LogDrum.component" "build/ExtasisLogDrum_artefacts/Release/AU/Extasis LogDrum.component"; do
+          for path in "build/ExtasisLogDrum_artefacts/Release/AU/ExtasisLogDrum.component" "build/ExtasisLogDrum_artefacts/AU/ExtasisLogDrum.component"; do
             if [ -d "$path" ]; then
               cp -r "$path" artifacts/
               break
             fi
           done
-          for path in "build/ExtasisLogDrum_artefacts/Standalone/ExtasisLogDrum.app" "build/ExtasisLogDrum_artefacts/Release/Standalone/ExtasisLogDrum.app" "build/ExtasisLogDrum_artefacts/Standalone/Extasis LogDrum.app" "build/ExtasisLogDrum_artefacts/Release/Standalone/Extasis LogDrum.app"; do
+          for path in "build/ExtasisLogDrum_artefacts/Release/Standalone/ExtasisLogDrum.app" "build/ExtasisLogDrum_artefacts/Standalone/ExtasisLogDrum.app"; do
             if [ -d "$path" ]; then
               cp -r "$path" artifacts/
               break
             fi
           done
-          if [ -d "installer" ]; then
-            cp -r installer artifacts/
-            chmod +x artifacts/installer/INSTALL_MAC.command 2>/dev/null || true
-          fi
-          for doc in MANUAL.md README.md PRESENTATION.md TECHNICAL.md FICHA_TECNICA.md ARCHITECTURE.md; do
+          cp -r installer artifacts/
+          chmod +x artifacts/installer/INSTALL_MAC.command || true
+          for doc in LICENSE README.md MANUAL.md CHANGELOG.md; do
             if [ -f "$doc" ]; then cp "$doc" artifacts/; fi
           done
-          
+          mkdir -p release_zips
+          (cd artifacts && zip -r "../release_zips/${{ matrix.artifact_name }}.zip" .)
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: artifacts/
+          path: release_zips/${{ matrix.artifact_name }}.zip
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            ## ExtasisLogDrum ${{ github.ref_name }} (Free & Open Source)
+
+            **ExtasisLogDrum** is a free, open-source (GPL-3.0) Amapiano Log Drum FM/PM synthesizer built with C++20 and JUCE 8 by **ExtasisRecords (`@laurorobles`)**.
+
+            ### Downloads
+            - **macOS (Apple Silicon + Intel Universal)**: `ExtasisLogDrum-macOS-Universal.zip` (VST3, AU, Standalone + `INSTALL_MAC.command`)
+            - **Windows (64-bit)**: `ExtasisLogDrum-Windows-x64.zip` (VST3, Standalone + `INSTALL_WINDOWS.bat`)
+
+            ### Installation
+            1. Unzip the archive for your operating system.
+            2. Run `installer/INSTALL_MAC.command` (macOS) or `installer/INSTALL_WINDOWS.bat` as Administrator (Windows).
+            3. Open your DAW and rescan plugins.
+          files: |
+            dist/*.zip
