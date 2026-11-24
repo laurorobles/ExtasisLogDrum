@@ -42,6 +42,11 @@ Download the latest free release for your operating system from the [GitHub Rele
 2. Right-click `installer/INSTALL_WINDOWS.bat` and choose **Run as administrator** (installs **VST3** to `C:\Program Files\Common Files\VST3\`).
 3. You can also launch `ExtasisLogDrum.exe` directly for Standalone use.
 
+### Linux (64-bit)
+1. Unzip `ExtasisLogDrum-Linux-x64.zip`.
+2. Run `bash installer/INSTALL_LINUX.sh` (installs **VST3** to `~/.vst3/` and **Standalone** to `~/.local/bin/`).
+3. Open your DAW and rescan VST3 plugins.
+
 ---
 
 ## Controls Overview

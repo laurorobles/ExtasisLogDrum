@@ -27,12 +27,35 @@ jobs:
             os: macos-latest
             artifact_name: ExtasisLogDrum-macOS-Universal
             cmake_args: -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DEXTASIS_INSTALL_LOCAL=OFF
+          - name: Linux (x64)
+            os: ubuntu-latest
+            artifact_name: ExtasisLogDrum-Linux-x64
+            cmake_args: -DCMAKE_BUILD_TYPE=Release -DEXTASIS_INSTALL_LOCAL=OFF
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libfreetype-dev \
+            libfontconfig1-dev \
+            libx11-dev \
+            libxcomposite-dev \
+            libxcursor-dev \
+            libxext-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxrender-dev \
+            libgl1-mesa-dev \
+            pkg-config \
+            zip
 
       - name: Setup MSVC Developer Command Prompt (Windows)
         if: runner.os == 'Windows'
@@ -66,7 +89,8 @@ jobs:
               break
             fi
           done
-          cp -r installer artifacts/
+          mkdir -p artifacts/installer
+          cp installer/INSTALL_WINDOWS.bat artifacts/installer/
           for doc in LICENSE README.md MANUAL.md CHANGELOG.md; do
             if [ -f "$doc" ]; then cp "$doc" artifacts/; fi
           done
@@ -96,8 +120,36 @@ jobs:
               break
             fi
           done
-          cp -r installer artifacts/
+          mkdir -p artifacts/installer
+          cp installer/INSTALL_MAC.command artifacts/installer/
           chmod +x artifacts/installer/INSTALL_MAC.command || true
+          for doc in LICENSE README.md MANUAL.md CHANGELOG.md; do
+            if [ -f "$doc" ]; then cp "$doc" artifacts/; fi
+          done
+          mkdir -p release_zips
+          (cd artifacts && zip -r "../release_zips/${{ matrix.artifact_name }}.zip" .)
+
+      - name: Prepare Linux Package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          for path in "build/ExtasisLogDrum_artefacts/Release/VST3/ExtasisLogDrum.vst3" "build/ExtasisLogDrum_artefacts/VST3/ExtasisLogDrum.vst3"; do
+            if [ -d "$path" ]; then
+              cp -r "$path" artifacts/
+              break
+            fi
+          done
+          for path in "build/ExtasisLogDrum_artefacts/Release/Standalone/ExtasisLogDrum" "build/ExtasisLogDrum_artefacts/Standalone/ExtasisLogDrum"; do
+            if [ -f "$path" ]; then
+              cp "$path" artifacts/
+              chmod +x artifacts/ExtasisLogDrum
+              break
+            fi
+          done
+          mkdir -p artifacts/installer
+          cp installer/INSTALL_LINUX.sh artifacts/installer/
+          chmod +x artifacts/installer/INSTALL_LINUX.sh || true
           for doc in LICENSE README.md MANUAL.md CHANGELOG.md; do
             if [ -f "$doc" ]; then cp "$doc" artifacts/; fi
           done
@@ -129,15 +181,16 @@ jobs:
           body: |
             ## ExtasisLogDrum ${{ github.ref_name }} (Free & Open Source)
 
-            **ExtasisLogDrum** is a free, open-source (GPL-3.0) Amapiano Log Drum FM/PM synthesizer built with C++20 and JUCE 8 by **ExtasisRecords (`@laurorobles`)**.
+            **ExtasisLogDrum** is a free, open-source (GPL-3.0) Amapiano Log Drum FM/PM synthesizer built with C++20 and JUCE 8 by **Extasis Records (`@laurorobles`)**.
 
             ### Downloads
             - **macOS (Apple Silicon + Intel Universal)**: `ExtasisLogDrum-macOS-Universal.zip` (VST3, AU, Standalone + `INSTALL_MAC.command`)
             - **Windows (64-bit)**: `ExtasisLogDrum-Windows-x64.zip` (VST3, Standalone + `INSTALL_WINDOWS.bat`)
+            - **Linux (64-bit)**: `ExtasisLogDrum-Linux-x64.zip` (VST3, Standalone + `INSTALL_LINUX.sh`)
 
             ### Installation
             1. Unzip the archive for your operating system.
-            2. Run `installer/INSTALL_MAC.command` (macOS) or `installer/INSTALL_WINDOWS.bat` as Administrator (Windows).
+            2. Run `installer/INSTALL_MAC.command` (macOS), `installer/INSTALL_WINDOWS.bat` as Administrator (Windows), or `bash installer/INSTALL_LINUX.sh` (Linux).
             3. Open your DAW and rescan plugins.
           files: |
             dist/*.zip

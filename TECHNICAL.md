@@ -6,7 +6,7 @@
 | **License** | GNU General Public License v3.0 (`GPL-3.0`) |
 | **Language / Framework** | C++20 / JUCE 8 |
 | **Plugin Formats** | VST3, Audio Unit (AU), Standalone |
-| **Platforms** | macOS Universal (`arm64` + `x86_64`), Windows (`x64`) |
+| **Platforms** | macOS Universal (`arm64` + `x86_64`), Windows (`x64`), Linux (`x64`) |
 | **Plugin Type** | Virtual Instrument / Synthesizer (`IS_SYNTH TRUE`) |
 | **Audio I/O** | Mono Out or Stereo Out (0 inputs, 1–2 outputs) |
 | **MIDI I/O** | MIDI Input (Notes, Velocity, Pitch Wheel, All Notes Off) |
